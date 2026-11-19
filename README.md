@@ -43,4 +43,8 @@ npx @google/clasp deploy -i AKfycbykYqzahKSgQHy2-R8TzThS515U0M6OfbkDcbaSeS-P5Z66
 
 Push alone doesn't change the live link; the `deploy -i` step does.
 
-**Keep `Index.html`'s `<script>` blocks free of `//`: no comments and no literal double slash in strings (build URLs with `['https:', '', 'host'].join('/')`).** Apps Script strips `//` comments from served pages, cuts URLs at their `//`, and mangled a version with same-line comments ("Unexpected identifier '#$'"). Any of these silently breaks the whole page.
+**`Index.html` must contain no `//`, no `/*` and no `*/` anywhere, not in comments, strings or HTML attributes.** Apps Script strips comments from served pages using a naive scan. A `//` cuts the rest of the line (it broke a `https:` URL), and a `/*` (it was in `accept="image/*"`) deletes everything up to the next `*/`. Either one silently breaks the whole page. Build URLs as `['https:', '', 'host'].join('/')`. Check before pushing:
+
+```bash
+grep -n '//\|/\*\|\*/' apps-script/Index.html
+```

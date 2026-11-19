@@ -173,7 +173,6 @@ const AUTH_EMAIL = <?!= JSON.stringify(userEmail) ?>;
 let STATE = { today: '', turnaroundDays: 2, actingAs: 'josh', episodes: [], filter: 'all' };
 const FIELD = { finished: 'Video - Finished File', thumb: 'Thumbnail', raw: 'Video - RAW', status: 'Video - Status' };
 
-/* ---------- server bridge (google.script.run in Apps Script, PREVIEW mock locally) ---------- */
 function api(fn, ...args) {
   if (window.PREVIEW) return window.PREVIEW.api(fn, ...args);
   return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](AUTH_EMAIL, ...args));
@@ -202,7 +201,6 @@ function uploadFile(cfg, fieldId, file, onProgress) {
   });
 }
 
-/* ---------- date helpers ---------- */
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 function d(s) { const [y, m, dd] = s.split('-').map(Number); return new Date(y, m - 1, dd); }
@@ -215,7 +213,6 @@ function countdown(n) {
 }
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-/* ---------- classification ---------- */
 function classify(ep) {
   const turnedIn = ep.finishedFiles.length > 0 || ['In Review', 'Approved', 'Done'].includes(ep.videoStatus);
   const ready = !!ep.raw;
@@ -226,7 +223,6 @@ function classify(ep) {
   return { turnedIn, ready, urgent, soon, cat };
 }
 
-/* ---------- render: list ---------- */
 function render() {
   const eps = STATE.episodes.map(ep => ({ ep, c: classify(ep) }));
   const count = k => eps.filter(x => x.c.cat === k).length;
@@ -278,7 +274,6 @@ function rowHtml({ ep, c }) {
   </button>`;
 }
 
-/* ---------- render: drawer ---------- */
 let current = null; const picked = { finished: null, thumb: null };
 
 function openEpisode(id) {
@@ -322,7 +317,7 @@ function openEpisode(id) {
         <div class="drop" id="drop-finished"><input type="file" accept=".zip,application/zip" data-slot="finished">
           <div class="t">Drop the finished .zip here</div><div class="h">Goes to <span class="field-tag">${FIELD.finished}</span></div>
           <div class="bar"><i></i></div></div>
-        <div class="drop" id="drop-thumb"><input type="file" accept="image/*" data-slot="thumb">
+        <div class="drop" id="drop-thumb"><input type="file" accept=".png,.jpg,.jpeg,.webp,.gif" data-slot="thumb">
           <div class="t">Drop the thumbnail image here</div><div class="h">Goes to <span class="field-tag">${FIELD.thumb}</span></div>
           <div class="bar"><i></i></div></div>
         <textarea id="note" placeholder="Anything we should know? (optional) — posted as a comment on the episode task, so it shows up in the ClickUp activity feed."></textarea>
@@ -374,7 +369,6 @@ function updateSend() {
   b.disabled = !(picked.finished || picked.thumb || document.getElementById('note').value.trim());
 }
 
-/* ---------- send ---------- */
 async function send() {
   const ep = current, btn = document.getElementById('send'), out = document.getElementById('result');
   btn.disabled = true; btn.textContent = 'Sending…'; out.innerHTML = '';
@@ -422,7 +416,6 @@ function fallbackHtml(ep, failed, statusFailed, noteFailed, topError) {
     <div class="src" style="margin-top:8px">Use the custom fields only — not the description, comments, or the general Attachments section.${topError ? ' Error: ' + esc(topError) : ''}</div></div>`;
 }
 
-/* ---------- banners & boot ---------- */
 function renderBanners() {
   let h = '';
   if (window.PREVIEW) h += `<div class="banner preview"><b>Local preview</b> Showing a snapshot of real ClickUp data (taken ${esc(window.PREVIEW.snapshotDate)}). Nothing is sent to ClickUp.
