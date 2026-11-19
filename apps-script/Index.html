@@ -162,17 +162,13 @@
 </div>
 
 <script>
-// Separate block so it still runs (and reports) if the main script below fails to parse.
 window.addEventListener('error', function (e) {
   var l = document.getElementById('list');
   if (l) l.innerHTML = '<div class="empty">Something broke on this page: ' + String(e.message).replace(/</g, '&lt;') + '</div>';
 });
 </script>
 <script>
-// Wrapped so none of these names become page globals.
 (function () {
-// Verified by doGet's Google sign-in; passed as the first argument of every server call.
-// (The local preview server swaps this scriptlet for a placeholder.)
 const AUTH_EMAIL = <?!= JSON.stringify(userEmail) ?>;
 let STATE = { today: '', turnaroundDays: 2, actingAs: 'josh', episodes: [], filter: 'all' };
 const FIELD = { finished: 'Video - Finished File', thumb: 'Thumbnail', raw: 'Video - RAW', status: 'Video - Status' };
@@ -183,11 +179,8 @@ function api(fn, ...args) {
   return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](AUTH_EMAIL, ...args));
 }
 
-// Apps Script strips "//" comments from served page scripts, and its stripper also
-// cuts at the "//" inside URL strings. Never write a literal double slash in this script.
 const CLICKUP_API = ['https:', '', 'api.clickup.com'].join('/');
 
-// Browser uploads straight to ClickUp: Apps Script can't carry a multi-hundred-MB zip.
 function uploadFile(cfg, fieldId, file, onProgress) {
   if (window.PREVIEW) return window.PREVIEW.upload(file, onProgress);
   return new Promise((resolve, reject) => {
@@ -227,8 +220,8 @@ function classify(ep) {
   const turnedIn = ep.finishedFiles.length > 0 || ['In Review', 'Approved', 'Done'].includes(ep.videoStatus);
   const ready = !!ep.raw;
   const n = daysFrom(STATE.today, ep.dueBack);
-  const urgent = !turnedIn && n <= 0;          // 48-hour deadline has hit
-  const soon = !turnedIn && n >= 1 && n <= 2;  // due back within 2 days
+  const urgent = !turnedIn && n <= 0;
+  const soon = !turnedIn && n >= 1 && n <= 2;
   const cat = turnedIn ? 'done' : ready ? 'ready' : 'waiting';
   return { turnedIn, ready, urgent, soon, cat };
 }
@@ -251,7 +244,6 @@ function render() {
   const list = document.getElementById('list');
   if (!shown.length) { list.innerHTML = `<div class="empty">Nothing here right now.</div>`; return; }
 
-  // Footage-ready episodes first, then the rest by due-back date, turned-in last.
   const groups = [['Ready to edit now — footage is in', x => x.c.cat === 'ready'],
                   ['Due in the next 7 days', x => x.c.cat !== 'done' && daysFrom(STATE.today, x.ep.dueBack) <= 7],
                   ['Next 30 days', x => x.c.cat !== 'done' && daysFrom(STATE.today, x.ep.dueBack) <= 30],
@@ -403,7 +395,6 @@ async function send() {
     const res = await api('finalizeDelivery', ep.id, payload);
     if (res.finished && !res.finished.ok) failed.push({ label: FIELD.finished, file: payload.finishedName, error: res.finished.error });
     if (res.thumbnail && !res.thumbnail.ok) failed.push({ label: FIELD.thumb, file: payload.thumbnailName, error: res.thumbnail.error });
-    // Status flips only when a file landed; if every upload failed, Joe sets it by hand.
     const statusFailed = (res.status && !res.status.ok) || (failed.length > 0 && !res.status);
     const commentFailed = res.comment && !res.comment.ok;
 
@@ -460,7 +451,6 @@ async function load() {
   }
 }
 
-// Surface any script error on the page instead of leaving "Loading…" up forever.
 window.addEventListener('error', e => {
   document.getElementById('list').innerHTML = `<div class="empty">Something broke on this page: ${esc(e.message)}</div>`;
 });
