@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video Editor Dashboard</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --surface: #ffffff; --surface-2: #f0f2f5; --border: #e2e5ea;
+    --text: #15181d; --muted: #5f6672; --faint: #8b929d;
+    --accent: #2f5bea; --accent-soft: #e7edfd;
+    --ready: #157a3f; --ready-soft: #e3f4ea;
+    --waiting: #6b7280; --waiting-soft: #eef0f3;
+    --done: #2f5bea; --done-soft: #e7edfd;
+    --late: #c2341b; --late-soft: #fdeae6; --late-solid: #c2341b;
+    --soon: #b45309; --soon-soft: #fdecd8;
+    --warn: #9a6200; --warn-soft: #fdf3dc;
+    --csp: #7a3fd1; --did: #0c7c86;
+    --radius: 10px; --shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --surface: #171a20; --surface-2: #1f232b; --border: #2a2f38;
+      --text: #e9ecf1; --muted: #a1a8b3; --faint: #737b87;
+      --accent: #7c9cff; --accent-soft: #1e2847;
+      --ready: #5bd08a; --ready-soft: #15301f;
+      --waiting: #a1a8b3; --waiting-soft: #23272f;
+      --done: #7c9cff; --done-soft: #1e2847;
+      --late: #ff8a73; --late-soft: #3a1c16; --late-solid: #c2341b;
+      --soon: #ffa94d; --soon-soft: #3a2510;
+      --warn: #f2bd5a; --warn-soft: #33270f;
+      --csp: #b48cff; --did: #4fc7d1;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  a { color: var(--accent); }
+  button { font: inherit; cursor: pointer; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+
+  .banner { border-radius: var(--radius); padding: 10px 14px; margin-bottom: 12px; font-size: 13px;
+    display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+  .banner.preview { background: var(--warn-soft); color: var(--warn); }
+  .banner.setup { background: var(--accent-soft); color: var(--text); }
+  .banner b { font-weight: 600; }
+  .banner label { margin-left: auto; display: flex; gap: 6px; align-items: center; cursor: pointer; }
+
+  header.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 8px 0 18px; flex-wrap: wrap; }
+  h1 { font-size: 26px; margin: 0; letter-spacing: -.01em; }
+  .sub { color: var(--muted); margin-top: 4px; }
+  .btn { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 7px 12px; }
+  .btn:hover { background: var(--surface-2); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow);
+    text-align: left; color: var(--text); }
+  .stat .n { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .l { color: var(--muted); font-size: 12.5px; }
+  .stat.active { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .stat.ready .n { color: var(--ready); } .stat.late .n { color: var(--late); } .stat.done .n { color: var(--done); }
+
+  .list { display: flex; flex-direction: column; gap: 8px; }
+  .group-h { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); margin: 18px 2px 4px; font-weight: 600; }
+  .row { display: grid; grid-template-columns: 116px 1fr auto; gap: 14px; align-items: center; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow); cursor: pointer; text-align: left; width: 100%; color: inherit; }
+  .row:hover { border-color: var(--accent); }
+  .row.is-ready { border-left: 4px solid var(--ready); }
+  .row.is-urgent { border-left: 4px solid var(--late); }
+  .row.is-soon { border-left: 4px solid var(--soon); }
+  .urgent-banner, .soon-banner { grid-column: 1 / -1; font-weight: 700; font-size: 12.5px; letter-spacing: .02em;
+    padding: 6px 10px; border-radius: 6px; }
+  .urgent-banner { background: var(--late-solid); color: #fff; }
+  .soon-banner { background: var(--soon-soft); color: var(--soon); }
+  .tags { display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+  .due .c.soon { color: var(--soon); font-weight: 600; }
+  .due .d { font-weight: 700; font-size: 15px; }
+  .due .c { font-size: 12px; color: var(--muted); }
+  .due .c.late { color: var(--late); font-weight: 600; }
+  .ep .t { font-weight: 600; }
+  .ep .m { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .show { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-right: 6px; color: #fff; vertical-align: 1px; }
+  .show.CSP { background: var(--csp); } .show.DID { background: var(--did); }
+  .pill { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  .pill.ready { background: var(--ready-soft); color: var(--ready); }
+  .pill.waiting { background: var(--waiting-soft); color: var(--waiting); }
+  .pill.done { background: var(--done-soft); color: var(--done); }
+  .pill.soon { background: var(--soon-soft); color: var(--soon); }
+  .empty { color: var(--muted); padding: 28px; text-align: center; background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius); }
+
+  /* Drawer */
+  .scrim { position: fixed; inset: 0; background: rgba(10,12,16,.45); display: none; z-index: 10; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(620px, 100%); background: var(--bg); z-index: 11;
+    transform: translateX(100%); transition: transform .2s ease; overflow-y: auto; border-left: 1px solid var(--border); }
+  .open .scrim { display: block; } .open .drawer { transform: none; }
+  .d-head { position: sticky; top: 0; background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 20px; z-index: 1; }
+  .d-head h2 { margin: 6px 0 2px; font-size: 19px; }
+  .d-head .close { position: absolute; top: 12px; right: 12px; border: 0; background: none; font-size: 22px; color: var(--muted); }
+  .d-dates { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .d-dates b { color: var(--text); }
+  .d-body { padding: 16px 20px 40px; display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+  .card h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+  .kv { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; }
+  .raw { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; margin-top: 12px; }
+  .raw.ok { background: var(--ready-soft); } .raw.no { background: var(--waiting-soft); color: var(--muted); }
+  .raw .btn { margin-left: auto; }
+  .src { font-size: 11.5px; color: var(--faint); }
+  .note { border-left: 3px solid var(--border); padding: 2px 0 2px 12px; margin-top: 10px; }
+  .note:first-of-type { margin-top: 0; }
+  .note .lbl { font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
+  .note pre { margin: 0; white-space: pre-wrap; font: inherit; }
+
+  .drop { border: 2px dashed var(--border); border-radius: 10px; padding: 14px; text-align: center; margin-top: 10px; position: relative; background: var(--surface-2); }
+  .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  .drop.has { border-style: solid; border-color: var(--ready); background: var(--ready-soft); }
+  .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop .t { font-weight: 600; } .drop .h { font-size: 12.5px; color: var(--muted); }
+  .field-tag { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 8px; display: none; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
+  textarea { width: 100%; min-height: 90px; margin-top: 10px; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; resize: vertical; }
+  .send-row { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .send-row .h { font-size: 12.5px; color: var(--muted); flex: 1; min-width: 200px; }
+  .result { border-radius: 8px; padding: 12px 14px; margin-top: 12px; font-size: 13.5px; }
+  .result.ok { background: var(--ready-soft); }
+  .result.bad { background: var(--late-soft); }
+  .result ol { margin: 8px 0 0; padding-left: 20px; } .result li { margin: 4px 0; }
+  details.guide summary { cursor: pointer; font-weight: 600; }
+  details.guide ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); } details.guide li { margin: 4px 0; }
+  .loading { color: var(--muted); padding: 40px; text-align: center; }
+
+  @media (max-width: 640px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .row { grid-template-columns: 1fr; gap: 6px; }
+    .row .tags { justify-content: flex-start; }
+    .kv { grid-template-columns: 1fr; } .kv dt { margin-top: 6px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="wrap">
+    <div id="banners"></div>
+    <header class="top">
+      <div>
+        <h1>Upcoming Videos to Edit</h1>
+        <div class="sub">Premium videos for CISO Series Podcast &amp; Defense in Depth · due back <b id="turnaround">48 hours</b> before the episode airs</div>
+      </div>
+      <button class="btn" id="refresh">↻ Refresh</button>
+    </header>
+    <div class="stats" id="stats"></div>
+    <div class="list" id="list"><div class="loading">Loading episodes from ClickUp…</div></div>
+  </div>
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" id="drawer" aria-label="Episode details"></aside>
+</div>
+
+<script>
+// Separate block so it still runs (and reports) if the main script below fails to parse.
+window.addEventListener('error', function (e) {
+  var l = document.getElementById('list');
+  if (l) l.innerHTML = '<div class="empty">Something broke on this page: ' + String(e.message).replace(/</g, '&lt;') + '</div>';
+});
+</script>
+<script>
+// Wrapped so none of these names become page globals.
+(function () {
+// Verified by doGet's Google sign-in; passed as the first argument of every server call.
+// (The local preview server swaps this scriptlet for a placeholder.)
+const AUTH_EMAIL = <?!= JSON.stringify(userEmail) ?>;
+let STATE = { today: '', turnaroundDays: 2, actingAs: 'josh', episodes: [], filter: 'all' };
+const FIELD = { finished: 'Video - Finished File', thumb: 'Thumbnail', raw: 'Video - RAW', status: 'Video - Status' };
+
+/* ---------- server bridge (google.script.run in Apps Script, PREVIEW mock locally) ---------- */
+function api(fn, ...args) {
+  if (window.PREVIEW) return window.PREVIEW.api(fn, ...args);
+  return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](AUTH_EMAIL, ...args));
+}
+
+// Apps Script strips "//" comments from served page scripts, and its stripper also
+// cuts at the "//" inside URL strings. Never write a literal double slash in this script.
+const CLICKUP_API = ['https:', '', 'api.clickup.com'].join('/');
+
+// Browser uploads straight to ClickUp: Apps Script can't carry a multi-hundred-MB zip.
+function uploadFile(cfg, fieldId, file, onProgress) {
+  if (window.PREVIEW) return window.PREVIEW.upload(file, onProgress);
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', CLICKUP_API + `/api/v3/workspaces/${cfg.workspaceId}/custom_fields/${fieldId}/attachments`);
+    xhr.setRequestHeader('Authorization', cfg.token);
+    xhr.upload.onprogress = e => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.onload = () => {
+      if (xhr.status >= 300) return reject(new Error(`ClickUp ${xhr.status}: ${xhr.responseText.slice(0, 200)}`));
+      try {
+        const j = JSON.parse(xhr.responseText);
+        const id = j.id || (j.attachment && j.attachment.id) || (j.data && j.data.id);
+        id ? resolve(id) : reject(new Error('Upload finished but ClickUp returned no attachment id'));
+      } catch (e) { reject(e); }
+    };
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+    const fd = new FormData(); fd.append('attachment', file, file.name);
+    xhr.send(fd);
+  });
+}
+
+/* ---------- date helpers ---------- */
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function d(s) { const [y, m, dd] = s.split('-').map(Number); return new Date(y, m - 1, dd); }
+function fmt(s, withDow) { const x = d(s); return (withDow ? DOW[x.getDay()] + ', ' : '') + MON[x.getMonth()] + ' ' + x.getDate(); }
+function daysFrom(today, s) { return Math.round((d(s) - d(today)) / 864e5); }
+function countdown(n) {
+  if (n < 0) return `${-n} day${n === -1 ? '' : 's'} late`;
+  if (n === 0) return 'due today'; if (n === 1) return 'due tomorrow';
+  return `in ${n} days`;
+}
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------- classification ---------- */
+function classify(ep) {
+  const turnedIn = ep.finishedFiles.length > 0 || ['In Review', 'Approved', 'Done'].includes(ep.videoStatus);
+  const ready = !!ep.raw;
+  const n = daysFrom(STATE.today, ep.dueBack);
+  const urgent = !turnedIn && n <= 0;          // 48-hour deadline has hit
+  const soon = !turnedIn && n >= 1 && n <= 2;  // due back within 2 days
+  const cat = turnedIn ? 'done' : ready ? 'ready' : 'waiting';
+  return { turnedIn, ready, urgent, soon, cat };
+}
+
+/* ---------- render: list ---------- */
+function render() {
+  const eps = STATE.episodes.map(ep => ({ ep, c: classify(ep) }));
+  const count = k => eps.filter(x => x.c.cat === k).length;
+  const stats = [
+    ['all', 'All upcoming', eps.length, ''],
+    ['ready', 'Ready to edit', count('ready'), 'ready'],
+    ['waiting', 'Waiting on footage', count('waiting'), ''],
+    ['done', 'Turned in', count('done'), 'done'],
+  ];
+  document.getElementById('stats').innerHTML = stats.map(([k, l, n, cls]) =>
+    `<button class="stat ${cls} ${STATE.filter === k ? 'active' : ''}" data-filter="${k}"><div class="n">${n}</div><div class="l">${l}</div></button>`).join('');
+
+  let shown = eps.filter(x => STATE.filter === 'all' || x.c.cat === STATE.filter);
+  shown.sort((a, b) => a.ep.dueBack.localeCompare(b.ep.dueBack));
+  const list = document.getElementById('list');
+  if (!shown.length) { list.innerHTML = `<div class="empty">Nothing here right now.</div>`; return; }
+
+  // Footage-ready episodes first, then the rest by due-back date, turned-in last.
+  const groups = [['Ready to edit now — footage is in', x => x.c.cat === 'ready'],
+                  ['Due in the next 7 days', x => x.c.cat !== 'done' && daysFrom(STATE.today, x.ep.dueBack) <= 7],
+                  ['Next 30 days', x => x.c.cat !== 'done' && daysFrom(STATE.today, x.ep.dueBack) <= 30],
+                  ['Later', x => x.c.cat !== 'done'],
+                  ['Turned in', () => true]];
+  const used = new Set(); let html = '';
+  groups.forEach(([label, test]) => {
+    const items = shown.filter(x => !used.has(x) && test(x));
+    if (!items.length) return;
+    items.forEach(x => used.add(x));
+    html += `<div class="group-h">${label}</div>` + items.map(rowHtml).join('');
+  });
+  list.innerHTML = html;
+}
+
+function urgentText(n) {
+  return `URGENT · ${n === 0 ? 'due back today' : countdown(n)} · the 48-hour deadline has hit`;
+}
+
+function rowHtml({ ep, c }) {
+  const n = daysFrom(STATE.today, ep.dueBack);
+  const status = c.turnedIn ? `<span class="pill done">✓ Turned in</span>`
+    : c.ready ? `<span class="pill ready">● Ready to edit</span>`
+    : `<span class="pill waiting">Waiting on footage</span>`;
+  const soon = c.soon ? `<span class="pill soon">Do soon</span>` : '';
+  const meta = ep.sponsor ? `Sponsor: ${esc(ep.sponsor)}` : 'Sponsor not set yet';
+  return `<button class="row ${c.urgent ? 'is-urgent' : c.soon ? 'is-soon' : c.ready && !c.turnedIn ? 'is-ready' : ''}" data-id="${ep.id}">
+    ${c.urgent ? `<div class="urgent-banner">${urgentText(n)}</div>` : ''}
+    <div class="due"><div class="d">${fmt(ep.dueBack, true)}</div><div class="c ${c.urgent ? 'late' : c.soon ? 'soon' : ''}">${c.turnedIn ? 'airs ' + fmt(ep.airDate) : countdown(n)}</div></div>
+    <div class="ep"><div class="t"><span class="show ${ep.showShort}">${ep.showShort}</span>${esc(ep.name)}</div><div class="m">${meta} · airs ${fmt(ep.airDate, true)}</div></div>
+    <div class="tags">${soon}${status}</div>
+  </button>`;
+}
+
+/* ---------- render: drawer ---------- */
+let current = null; const picked = { finished: null, thumb: null };
+
+function openEpisode(id) {
+  current = STATE.episodes.find(e => e.id === id); if (!current) return;
+  picked.finished = picked.thumb = null;
+  const ep = current, c = classify(ep), n = daysFrom(STATE.today, ep.dueBack);
+  const rawSrc = ep.raw && ep.raw.source === 'premium'
+    ? `<div class="src">From the linked <a href="${ep.premiumTask.url}" target="_blank">${esc(ep.premiumTask.name)}</a> task</div>` : '';
+  const notes = ep.notes.length ? ep.notes.map(nt => `<div class="note"><div class="lbl">${esc(nt.label)} <span class="src">· ${nt.source === 'main' ? 'episode task' : 'Premium Video task'}</span></div><pre>${esc(nt.text)}</pre></div>`).join('')
+    : `<div class="src">No video notes yet.</div>`;
+  const already = c.turnedIn ? `<div class="result ok"><b>Already turned in.</b> ${ep.finishedFiles.map(f => esc(f.title)).join(', ') || ''}${ep.thumbnails.length ? ' · thumbnail: ' + ep.thumbnails.map(f => esc(f.title)).join(', ') : ''}<br>Sending again will add files alongside the existing ones.</div>` : '';
+
+  document.getElementById('drawer').innerHTML = `
+    <div class="d-head">
+      <button class="close" id="close" aria-label="Close">×</button>
+      <span class="show ${ep.showShort}">${ep.showShort}</span><span class="src">${esc(ep.show)}</span>
+      <h2>${esc(ep.name)}</h2>
+      <div class="d-dates">
+        <span>Due back: <b>${fmt(ep.dueBack, true)}</b> <span style="color:${c.urgent ? 'var(--late)' : c.soon ? 'var(--soon)' : 'inherit'}">(${c.turnedIn ? 'turned in' : countdown(n)})</span></span>
+        <span>Airs: <b>${fmt(ep.airDate, true)}</b></span>
+        <a href="${ep.url}" target="_blank">Open in ClickUp ↗</a>
+      </div>
+    </div>
+    <div class="d-body">
+      ${c.urgent ? `<div class="urgent-banner">${urgentText(n)}</div>` : ''}
+      ${c.soon ? `<div class="soon-banner">Do soon · due back ${countdown(n)}</div>` : ''}
+      <section class="card">
+        <h3>What you're editing</h3>
+        <dl class="kv">
+          <dt>Sponsor</dt><dd>${esc(ep.sponsor) || '<span class="src">Not set yet</span>'}</dd>
+          ${ep.videoTitle ? `<dt>Video title</dt><dd>${esc(ep.videoTitle)}</dd>` : ''}
+        </dl>
+        ${ep.raw
+          ? `<div class="raw ok"><div><b>Raw footage is ready</b>${rawSrc}</div><a class="btn primary" href="${ep.raw.url}" target="_blank">Open footage ↗</a></div>`
+          : `<div class="raw no"><div><b>No raw footage yet.</b> This becomes ready once a link is added to <span class="field-tag">${FIELD.raw}</span>.</div></div>`}
+      </section>
+      <section class="card"><h3>Notes from the team</h3>${notes}</section>
+      <section class="card">
+        <h3>Turn it in</h3>
+        ${already}
+        <div class="drop" id="drop-finished"><input type="file" accept=".zip,application/zip" data-slot="finished">
+          <div class="t">Drop the finished .zip here</div><div class="h">Goes to <span class="field-tag">${FIELD.finished}</span></div>
+          <div class="bar"><i></i></div></div>
+        <div class="drop" id="drop-thumb"><input type="file" accept="image/*" data-slot="thumb">
+          <div class="t">Drop the thumbnail image here</div><div class="h">Goes to <span class="field-tag">${FIELD.thumb}</span></div>
+          <div class="bar"><i></i></div></div>
+        <textarea id="note" placeholder="Anything we should know? (optional) — posted as a comment on the episode task, so it shows up in the ClickUp activity feed."></textarea>
+        <div class="send-row">
+          <div class="h">Sending uploads the files, sets <span class="field-tag">${FIELD.status}</span> to <b>In Review</b>, and posts a comment on the task.</div>
+          <button class="btn primary" id="send" disabled>Send to ClickUp</button>
+        </div>
+        <div id="result"></div>
+      </section>
+      <section class="card">
+        <details class="guide"><summary>Adding things in ClickUp by hand?</summary>
+          <ul>
+            <li>Finished zip → the <span class="field-tag">${FIELD.finished}</span> custom field on <a href="${ep.url}" target="_blank">${esc(ep.name)}</a>.</li>
+            <li>Thumbnail → the <span class="field-tag">${FIELD.thumb}</span> custom field (not <i>Episode Thumbnail</i>).</li>
+            <li>Then set <span class="field-tag">${FIELD.status}</span> to <b>In Review</b>.</li>
+            <li>Please don't put files in the description, the comments or the general Attachments section — only the custom fields above.</li>
+            <li>Always the main episode task, not the Premium Video task.</li>
+          </ul>
+        </details>
+      </section>
+    </div>`;
+  document.getElementById('app').classList.add('open');
+  document.getElementById('close').onclick = closeDrawer;
+  document.querySelectorAll('.drop').forEach(wireDrop);
+  document.getElementById('note').oninput = updateSend;
+  document.getElementById('send').onclick = send;
+}
+
+function closeDrawer() { document.getElementById('app').classList.remove('open'); current = null; }
+
+function wireDrop(el) {
+  const input = el.querySelector('input'), slot = input.dataset.slot;
+  ['dragenter', 'dragover'].forEach(e => el.addEventListener(e, ev => { ev.preventDefault(); el.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(e => el.addEventListener(e, () => el.classList.remove('over')));
+  el.addEventListener('drop', ev => { ev.preventDefault(); setFile(el, slot, ev.dataTransfer.files[0]); });
+  input.addEventListener('change', () => setFile(el, slot, input.files[0]));
+}
+function setFile(el, slot, file) {
+  if (!file) return;
+  if (slot === 'finished' && !/\.zip$/i.test(file.name)) return alert('The finished file should be the .zip with the video and thumbnail.');
+  if (slot === 'thumb' && !file.type.startsWith('image/')) return alert('The thumbnail should be an image file.');
+  picked[slot] = file;
+  el.classList.add('has');
+  el.querySelector('.t').textContent = `✓ ${file.name} (${(file.size / 1048576).toFixed(1)} MB)`;
+  updateSend();
+}
+function updateSend() {
+  const b = document.getElementById('send');
+  b.disabled = !(picked.finished || picked.thumb || document.getElementById('note').value.trim());
+}
+
+/* ---------- send ---------- */
+async function send() {
+  const ep = current, btn = document.getElementById('send'), out = document.getElementById('result');
+  btn.disabled = true; btn.textContent = 'Sending…'; out.innerHTML = '';
+  const note = document.getElementById('note').value.trim();
+  const failed = [];
+  const payload = { note, finishedName: picked.finished && picked.finished.name, thumbnailName: picked.thumb && picked.thumb.name };
+  try {
+    const cfg = (picked.finished || picked.thumb) ? await api('getUploadConfig') : null;
+    for (const [slot, fieldKey, idKey, dropId, label] of [
+      ['finished', 'finished', 'finishedAttachmentId', 'drop-finished', FIELD.finished],
+      ['thumb', 'thumbnail', 'thumbnailAttachmentId', 'drop-thumb', FIELD.thumb]]) {
+      if (!picked[slot]) continue;
+      const bar = document.querySelector(`#${dropId} .bar`); bar.style.display = 'block';
+      try {
+        payload[idKey] = await uploadFile(cfg, cfg.fields[fieldKey], picked[slot], p => bar.firstElementChild.style.width = (p * 100).toFixed(0) + '%');
+      } catch (e) { failed.push({ label, file: picked[slot].name, error: e.message }); bar.style.display = 'none'; }
+    }
+    const res = await api('finalizeDelivery', ep.id, payload);
+    if (res.finished && !res.finished.ok) failed.push({ label: FIELD.finished, file: payload.finishedName, error: res.finished.error });
+    if (res.thumbnail && !res.thumbnail.ok) failed.push({ label: FIELD.thumb, file: payload.thumbnailName, error: res.thumbnail.error });
+    // Status flips only when a file landed; if every upload failed, Joe sets it by hand.
+    const statusFailed = (res.status && !res.status.ok) || (failed.length > 0 && !res.status);
+    const commentFailed = res.comment && !res.comment.ok;
+
+    if (!failed.length && !statusFailed && !commentFailed) {
+      out.innerHTML = `<div class="result ok"><b>Sent.</b> ${[payload.finishedName && 'Finished file', payload.thumbnailName && 'thumbnail', note && 'note'].filter(Boolean).join(', ')} added to <a href="${ep.url}" target="_blank">${esc(ep.name)}</a>${res.status ? ' and Video - Status set to In Review' : ''}.</div>`;
+      if (payload.finishedAttachmentId) ep.finishedFiles.push({ title: payload.finishedName });
+      if (payload.thumbnailAttachmentId) ep.thumbnails.push({ title: payload.thumbnailName });
+      if (res.status) ep.videoStatus = 'In Review';
+      render();
+    } else {
+      out.innerHTML = fallbackHtml(ep, failed, statusFailed, commentFailed && note);
+    }
+  } catch (e) {
+    out.innerHTML = fallbackHtml(ep, [picked.finished && { label: FIELD.finished, file: picked.finished.name }, picked.thumb && { label: FIELD.thumb, file: picked.thumb.name }].filter(Boolean), true, note, e.message);
+  }
+  btn.textContent = 'Send to ClickUp'; updateSend();
+}
+
+function fallbackHtml(ep, failed, statusFailed, noteFailed, topError) {
+  const steps = failed.map(f => `<li>Drop <b>${esc(f.file)}</b> into the <span class="field-tag">${f.label}</span> custom field.</li>`);
+  if (statusFailed) steps.push(`<li>Set <span class="field-tag">${FIELD.status}</span> to <b>In Review</b>.</li>`);
+  if (noteFailed) steps.push(`<li>Paste your note as a comment on the task.</li>`);
+  return `<div class="result bad"><b>Some of this didn't go through.</b> Please finish it in ClickUp:
+    <ol><li>Open <a href="${ep.url}" target="_blank">${esc(ep.name)} ↗</a> (the episode task, not the Premium Video task).</li>${steps.join('')}</ol>
+    <div class="src" style="margin-top:8px">Use the custom fields only — not the description, comments, or the general Attachments section.${topError ? ' Error: ' + esc(topError) : ''}</div></div>`;
+}
+
+/* ---------- banners & boot ---------- */
+function renderBanners() {
+  let h = '';
+  if (window.PREVIEW) h += `<div class="banner preview"><b>Local preview</b> Showing a snapshot of real ClickUp data (taken ${esc(window.PREVIEW.snapshotDate)}). Nothing is sent to ClickUp.
+    <label><input type="checkbox" id="simfail"> Simulate a failed upload</label></div>`;
+  if (STATE.actingAs !== 'joe') h += `<div class="banner setup"><span><b>One-time setup for Joe:</b> in ClickUp, click your avatar → <b>Settings</b> → <b>Apps</b> → <b>API Token</b> → <b>Generate</b>, then send the token to Josh. Until it's added, anything sent from here shows up in ClickUp under Josh's name.</span></div>`;
+  document.getElementById('banners').innerHTML = h;
+  const sf = document.getElementById('simfail'); if (sf) sf.onchange = () => window.PREVIEW.failUploads = sf.checked;
+}
+
+async function load() {
+  document.getElementById('list').innerHTML = `<div class="loading">Loading episodes from ClickUp…</div>`;
+  const slow = setTimeout(() => {
+    const el = document.querySelector('#list .loading');
+    if (el) el.textContent = 'Still loading from ClickUp… (taking longer than usual)';
+  }, 20000);
+  try {
+    const data = await api('getEpisodes');
+    clearTimeout(slow);
+    if (!data || !data.episodes) throw new Error('The server returned no data.');
+    Object.assign(STATE, data);
+    document.getElementById('turnaround').textContent = `${STATE.turnaroundDays * 24} hours`;
+    renderBanners(); render();
+  } catch (e) {
+    clearTimeout(slow);
+    document.getElementById('list').innerHTML = `<div class="empty">Couldn't load from ClickUp: ${esc(e.message || e)}</div>`;
+  }
+}
+
+// Surface any script error on the page instead of leaving "Loading…" up forever.
+window.addEventListener('error', e => {
+  document.getElementById('list').innerHTML = `<div class="empty">Something broke on this page: ${esc(e.message)}</div>`;
+});
+window.addEventListener('unhandledrejection', e => {
+  document.getElementById('list').innerHTML = `<div class="empty">Something broke on this page: ${esc((e.reason && e.reason.message) || e.reason)}</div>`;
+});
+
+document.getElementById('stats').addEventListener('click', e => { const b = e.target.closest('[data-filter]'); if (b) { STATE.filter = b.dataset.filter; render(); } });
+document.getElementById('list').addEventListener('click', e => { const r = e.target.closest('.row'); if (r) openEpisode(r.dataset.id); });
+document.getElementById('scrim').onclick = closeDrawer;
+document.addEventListener('keydown', e => e.key === 'Escape' && closeDrawer());
+document.getElementById('refresh').onclick = load;
+load();
+})();
+</script>
+</body>
+</html>
